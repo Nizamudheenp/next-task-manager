@@ -5,26 +5,42 @@ import { useRouter } from "next/navigation";
 export default function TasksPage() {
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
+  const [token, setToken] = useState(null);
   const router = useRouter();
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  useEffect(() => {
+    const t = localStorage.getItem("token");
+    if (!t) {
+      router.push("/login");
+    } else {
+      setToken(t);
+    }
+  }, []);
 
   const fetchTasks = async () => {
+    if (!token) return;
+
     const res = await fetch("/api/tasks", {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.status === 401) router.push("/login");
+
+    if (res.status === 401) {
+      router.push("/login");
+      return;
+    }
+
     const data = await res.json();
     setTasks(data);
   };
 
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [token]);
 
   const addTask = async (e) => {
     e.preventDefault();
-    const res = await fetch("/api/tasks", {
+
+    await fetch("/api/tasks", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -32,10 +48,9 @@ export default function TasksPage() {
       },
       body: JSON.stringify({ title }),
     });
-    if (res.ok) {
-      setTitle("");
-      fetchTasks();
-    }
+
+    setTitle("");
+    fetchTasks();
   };
 
   const toggleTask = async (id, completed) => {
@@ -47,6 +62,7 @@ export default function TasksPage() {
       },
       body: JSON.stringify({ id, completed: !completed }),
     });
+
     fetchTasks();
   };
 
@@ -59,8 +75,13 @@ export default function TasksPage() {
       },
       body: JSON.stringify({ id }),
     });
+
     fetchTasks();
   };
+
+  if (!token) {
+    return <p className="text-center mt-10">Checking auth...</p>;
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">
@@ -85,7 +106,11 @@ export default function TasksPage() {
           >
             <span
               onClick={() => toggleTask(task._id, task.completed)}
-              className={task.completed ? "line-through cursor-pointer" : "cursor-pointer"}
+              className={
+                task.completed
+                  ? "line-through cursor-pointer"
+                  : "cursor-pointer"
+              }
             >
               {task.title}
             </span>
